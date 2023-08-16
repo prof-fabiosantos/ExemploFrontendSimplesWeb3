@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Interagindo com Contrato Inteligente</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.3.5/dist/web3.min.js"></script>
+</head>
+<body>
+    <h1>Contrato Armazenador</h1>
+
+    <p><strong>Valor Atual:</strong> <span id="currentValue"></span></p>
+
+    <h2>Armazenar Valor</h2>
+    <input type="number" id="newValue" placeholder="Novo Valor">
+    <button onclick="storeValue()">Armazenar</button>
+
+    <h2>Recuperar Valor</h2>
+    <button onclick="retrieveValue()">Recuperar</button>
+
+    <script>
+        // Conexão ao provedor Web3 (MetaMask)
+        async function connectWeb3() {
+            if (window.ethereum) {
+                window.web3 = new Web3(window.ethereum);
+                await window.ethereum.enable();
+            } else if (window.web3) {
+                window.web3 = new Web3(web3.currentProvider);
+            } else {
+                console.log("Não foi possível detectar um provedor Web3.");
+            }
+        }
+
+        // Endereço do contrato
+        const contractAddress = '0x8ca6Ba4224A51c2e3C90DabBFba4DDb33dAa8b00';
+
+        // Abre uma instância do contrato
+        async function getContractInstance() {
+            const abi = [
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "retrievedValue",
+				"type": "uint256"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "sender",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "timestamp",
+				"type": "uint256"
+			}
+		],
+		"name": "ValueRetrieved",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "newValue",
+				"type": "uint256"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "sender",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "timestamp",
+				"type": "uint256"
+			}
+		],
+		"name": "ValueStored",
+		"type": "event"
+	},
+	{
+		"inputs": [],
+		"name": "retrieve",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "num",
+				"type": "uint256"
+			}
+		],
+		"name": "store",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	}
+]; 
+            return new window.web3.eth.Contract(abi, contractAddress);
+        }
+
+        // Armazena um novo valor no contrato
+        async function storeValue() {
+            const newValue = parseInt(document.getElementById('newValue').value);
+            if (isNaN(newValue)) {
+                alert("Digite um valor numérico válido.");
+                return;
+            }
+
+            const contract = await getContractInstance();
+            const accounts = await window.web3.eth.getAccounts();
+
+            try {
+                const result = await contract.methods.store(newValue).send({ from: accounts[0] });
+                console.log(result);
+                alert("Valor armazenado com sucesso!");				
+            } catch (error) {
+                console.error(error);
+                alert("Erro ao armazenar o valor.");
+            }
+
+			// Obtém os logs do último evento ValueStored
+			const latestEvents = await contract.getPastEvents('ValueStored', {
+				fromBlock: 'latest', // Obtém eventos a partir do bloco mais recente
+				toBlock: 'latest',   // Até o bloco mais recente
+			});
+
+			// Processa os logs do último evento e exibe em um alerta
+			latestEvents.forEach(event => {
+				const eventData = event.returnValues;
+				const eventDataString = JSON.stringify(eventData, null, 2); // Formata os dados para exibição
+				alert(`Dados do evento ValueStored:\n${eventDataString}`);
+			});
+
+
+			// Obtém os logs do último evento ValueStored
+			const latestBlockNumber = await web3.eth.getBlockNumber();
+			contract.events.ValueStored({fromBlock: latestBlockNumber}, function(error, event) {
+          			console.log(event);
+				})
+										
+		}	
+
+        // Recupera o valor atual do contrato
+        async function retrieveValue() {
+            const contract = await getContractInstance();
+            const currentValue = await contract.methods.retrieve().call();
+            document.getElementById('currentValue').textContent = currentValue;
+        }
+
+        // Chamadas de inicialização
+        async function init() {
+            await connectWeb3();
+            await retrieveValue();
+        }
+
+        init();
+    </script>
+</body>
+</html>
